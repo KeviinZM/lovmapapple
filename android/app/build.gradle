@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -77,20 +78,26 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.fckmapnative"
+    namespace "com.fckmap.app"
     defaultConfig {
-        applicationId "com.fckmapnative"
+        applicationId "com.fckmap.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 4
+        versionName "0.22"
     }
     signingConfigs {
         debug {
-            storeFile file('debug.keystore')
+            storeFile file(System.properties['user.home'] + '/.android/debug.keystore')
             storePassword 'android'
-            keyAlias 'androiddebugkey'
+            keyAlias 'AndroidDebugKey'
             keyPassword 'android'
+        }
+        release {
+            storeFile file('release-key.keystore')
+            storePassword 'lovmap2024'
+            keyAlias 'lovmap-key'
+            keyPassword 'lovmap2024'
         }
     }
     buildTypes {
@@ -98,11 +105,10 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
+            signingConfig signingConfigs.release
+            minifyEnabled true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            debuggable false
         }
     }
 }
@@ -117,3 +123,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+

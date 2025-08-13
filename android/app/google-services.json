@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "927171505332",
+    "project_id": "fck-mobile-android",
+    "storage_bucket": "fck-mobile-android.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:927171505332:android:89c7882bc75075dd663be1",
+        "android_client_info": {
+          "package_name": "com.fckmap.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "927171505332-nuj5vecbjbmicbuhc9uncfh32oihialf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fckmap.app",
+            "certificate_hash": "5fa0e6903f38a1a8e6d7fad0487e7c5ef932c0f8"
+          }
+        },
+        {
+          "client_id": "927171505332-n30sheipr5bc86mi6bqa4kjgm2pgids1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAq71RNg7sfMgF1judVA8_z0vBHPSVAWtE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "927171505332-n30sheipr5bc86mi6bqa4kjgm2pgids1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

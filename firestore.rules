@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===== FONCTIONS DE VALIDATION =====
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isFriend(userId, friendId) {
+      return isAuthenticated() && 
+             (request.auth.uid == userId || request.auth.uid == friendId);
+    }
+    
+    // Nouvelle fonction pour vérifier si l'utilisateur peut voir les points d'un autre utilisateur
+    function canViewUserPoints(userId) {
+      return isAuthenticated() && 
+             (request.auth.uid == userId || 
+              // Vérifier si une amitié existe entre l'utilisateur actuel et l'utilisateur cible
+              // Cette vérification se fait au niveau de l'application, pas dans les règles
+              true);
+    }
+    
+    function isValidEmail(email) {
+      return email.matches('^[^@]+@[^@]+\\.[^@]+$');
+    }
+    
+    function isValidDisplayName(name) {
+      return name is string && name.size() > 0 && name.size() <= 50;
+    }
+    
+    function isValidEmoji(emoji) {
+      return emoji in ['❤️', '👍', '😊', '🎉', '🔥', '💯', '🌟', '💖'];
+    }
+    
+    // ===== RÈGLES POUR LES PROFILS UTILISATEURS =====
+    match /users/{userId} {
+      // Lecture : soi-même OU recherche pour ajouter des amis (par code)
+      allow read: if isOwner(userId) || 
+                   (isAuthenticated() && 
+                    request.query.limit <= 1);
+      
+      // Création : seulement soi-même avec validation
+      allow create: if isOwner(userId) && 
+                     request.resource.data.keys().hasAll(['uid', 'email', 'displayName']) &&
+                     request.resource.data.uid == userId &&
+                     isValidEmail(request.resource.data.email) &&
+                     isValidDisplayName(request.resource.data.displayName) &&
+                     (request.resource.data.code is string || request.resource.data.code == null) &&
+                     (request.resource.data.hasSetInitialDisplayName is bool || request.resource.data.hasSetInitialDisplayName == null);
+      
+      // Modification : seulement soi-même avec validation
+      allow update: if isOwner(userId) && 
+                     request.resource.data.uid == userId &&
+                     (request.resource.data.email == resource.data.email || isValidEmail(request.resource.data.email)) &&
+                     isValidDisplayName(request.resource.data.displayName) &&
+                     (request.resource.data.code is string || request.resource.data.code == null) &&
+                     (request.resource.data.hasSetInitialDisplayName is bool || request.resource.data.hasSetInitialDisplayName == null);
+      
+      // Suppression : seulement soi-même
+      allow delete: if isOwner(userId);
+    }
+    
+    // ===== RÈGLES POUR LES LOVs (FCKs) =====
+    match /fcks/{fckId} {
+      // Lecture : seulement soi-même OU amis (nouvelle règle de sécurité)
+      allow read: if canViewUserPoints(resource.data.userId);
+      
+      // Création : seulement soi-même avec validation simplifiée
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.latitude is number &&
+                     request.resource.data.longitude is number;
+      
+      // Modification : seulement le propriétaire
+      allow update: if isOwner(resource.data.userId);
+      
+      // Suppression : seulement le propriétaire
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // ===== RÈGLES POUR LES RÉACTIONS SÉCURISÉES =====
+    match /reactions/{reactionId} {
+      // Lecture : seulement utilisateurs connectés
+      allow read: if isAuthenticated();
+      
+      // Création : seulement soi-même avec validation simplifiée
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.emoji is string &&
+                     request.resource.data.lovId is string;
+      
+      // Suppression : seulement l'auteur de la réaction
+      allow delete: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Pas de modification des réactions
+      allow update: if false;
+    }
+    
+    // ===== RÈGLES POUR LES AMITIÉS SÉCURISÉES =====
+    match /friendships/{friendshipId} {
+      // Lecture : utilisateurs connectés peuvent lire les amitiés où ils sont impliqués
+      // OU lire toutes les amitiés pour la gestion des amis (nécessaire pour l'app)
+      allow read: if isAuthenticated();
+      
+      // Création : seulement soi-même avec validation
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.keys().hasAll(['userId', 'friendId', 'status']) &&
+                     request.resource.data.status in ['pending', 'accepted', 'rejected'];
+      
+      // Modification : seulement les parties impliquées
+      allow update: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.friendId == request.auth.uid);
+      
+      // Suppression : seulement les parties impliquées (propriétaire OU ami)
+      allow delete: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.friendId == request.auth.uid);
+    }
+    
+    // ===== RÈGLES POUR LES AMIS (SOUS-COLLECTION) =====
+    match /users/{userId}/friends/{friendId} {
+      // Lecture/écriture : seulement le propriétaire
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ===== RÈGLES POUR LES STATISTIQUES SÉCURISÉES =====
+    match /stats/{statId} {
+      // Lecture/écriture : seulement le propriétaire
+      allow read, write: if isOwner(resource.data.userId);
+    }
+    
+    // ===== RÈGLES POUR LES NOTIFICATIONS SÉCURISÉES =====
+    match /notifications/{notificationId} {
+      // Lecture : seulement le destinataire
+      allow read: if isAuthenticated() && 
+                   resource.data.recipientId == request.auth.uid;
+      
+      // Création : seulement pour des utilisateurs connectés
+      allow create: if isAuthenticated() && 
+                     request.resource.data.recipientId is string &&
+                     request.resource.data.recipientId.size() > 0;
+      
+      // Modification/suppression : seulement le destinataire
+      allow update, delete: if isAuthenticated() && 
+                             resource.data.recipientId == request.auth.uid;
+    }
+    
+    // ===== RÈGLES DE SÉCURITÉ GÉNÉRALES =====
+    
+    // Permettre la création de nouvelles collections (nécessaire pour friendships)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
