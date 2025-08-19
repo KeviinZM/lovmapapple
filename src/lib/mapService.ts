@@ -1,134 +1,82 @@
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { deleteAllReactionsForLov } from './reactionService';
-import { Friend } from './friendshipService';
-import { UserProfile } from '../types';
-
-// Legacy: types et API pour "locations" non utilisés dans l'app actuelle ont été retirés
-
-export type FckEmoji = 'aubergine' | 'peche';
-export type FckLocationType = 'address' | 'city';
-
-export interface Fck {
-  id: string;
-  latitude: number;
-  longitude: number;
-  emoji: FckEmoji;
-  locationType: FckLocationType;
-  addressLabel: string; // adresse ou ville affichée
-  city?: string | null; // ville normalisée pour l'affichage
-  partnerName?: string | null;
-  rating: number; // 1..5
-  userId: string;
-  userEmail: string;
-  userColor: string; // couleur du créateur (pour le badge)
-  createdAt: Date;
-}
+import { UserProfile, Friend, Fck, FckEmoji, FckLocationType } from '../types';
 
 const FCKS_COLLECTION = 'fcks';
 const USERS_COLLECTION = 'users';
 
-export const ensureUserProfile = async (customDisplayName?: string): Promise<UserProfile> => {
-  const current = auth().currentUser;
-  if (!current) throw new Error('Utilisateur non connecté');
-  const uid = current.uid;
-  const ref = firestore().collection(USERS_COLLECTION).doc(uid);
-  
-  console.log('🔥 ensureUserProfile - Début, UID:', uid);
-  console.log('🔥 ensureUserProfile - Référence Firestore:', ref.path);
-  console.log('🔥 ensureUserProfile - Custom displayName:', customDisplayName);
 
-  // Génère un code déterministe (5 premiers caractères de l'UID)
+const generateUserCode = (uid: string): string => {
   const raw = (uid || '').replace(/[^A-Za-z0-9]/g, '');
-  const code = raw.slice(0, 5).toUpperCase();
-
-  // Vérifier si c'est un utilisateur Google qui n'a pas encore défini son pseudo
-  const isGoogleUser = current.providerData.some(provider => provider.providerId === 'google.com');
-  
-  // Priorité : customDisplayName > current.displayName > null
-  const displayName = customDisplayName || current.displayName || null;
-  const needsInitialDisplayName = isGoogleUser && !displayName;
-
-  const profile: UserProfile = {
-    uid,
-    displayName,
-    email: current.email || null,
-    code,
-    hasSetInitialDisplayName: !needsInitialDisplayName, // true si déjà défini, false si Google sans pseudo
-  };
-
-  // set merge: true pour créer/compléter de façon idempotent
-  console.log('🔥 ensureUserProfile - Tentative d\'écriture Firestore...');
-  console.log('🔥 ensureUserProfile - Données à écrire:', profile);
-  
-  try {
-    await ref.set(profile as any, { merge: true });
-    console.log('✅ ensureUserProfile - Écriture Firestore réussie');
-  } catch (error) {
-    console.error('❌ ensureUserProfile - Erreur Firestore:', error);
-    throw error;
-  }
-  
-  return profile;
+  return raw.slice(0, 5).toUpperCase();
 };
 
-// Fonction pour mettre à jour le profil utilisateur dans Firestore
-export const updateUserProfile = async (updates: Partial<Pick<UserProfile, 'displayName' | 'email' | 'hasSetInitialDisplayName'>>): Promise<void> => {
+export const ensureUserProfile = async (customDisplayName?: string): Promise<UserProfile> => {
   const current = auth().currentUser;
-  if (!current) throw new Error('Utilisateur non connecté');
+  if (!current) {
+    throw new Error('Utilisateur non connecté - veuillez réessayer');
+  }
+
   const uid = current.uid;
-  const ref = firestore().collection(USERS_COLLECTION).doc(uid);
+  const usersRef = firestore().collection('users');
+  const userRef = usersRef.doc(uid);
+
+  // Retry automatique en cas d'erreur temporaire
+  let retryCount = 0;
+  const maxRetries = 3;
   
-  // Vérifier si on peut modifier le displayName
-  if (updates.displayName) {
-    const currentProfile = await ref.get();
-    const hasSetInitial = currentProfile.data()?.hasSetInitialDisplayName;
-    
-    if (hasSetInitial) {
-      throw new Error('Le changement de pseudo n\'est autorisé qu\'à la première connexion');
+  while (retryCount < maxRetries) {
+    try {
+      // Vérifier d'abord si le profil existe déjà
+      const doc = await userRef.get();
+      
+      if (doc.exists()) {
+        // Profil existant, le retourner
+        const existingProfile = doc.data() as UserProfile;
+        return {
+          ...existingProfile,
+          createdAt: existingProfile.createdAt ? (existingProfile.createdAt instanceof Date ? existingProfile.createdAt : new Date()) : new Date(),
+          updatedAt: new Date(),
+        };
+      }
+      
+             // Profil inexistant, le créer avec le pseudo personnalisé
+       const profile: UserProfile = {
+         uid,
+         pseudo: customDisplayName || current.email?.split('@')[0] || 'Utilisateur', // Pseudo personnalisé
+         email: current.email,
+         code: generateUserCode(uid),
+         createdAt: new Date(),
+         updatedAt: new Date(),
+       };
+      
+             // Log pour vérifier que le pseudo est bien stocké
+       console.log('🔍 Création du profil avec:', {
+         uid,
+         pseudo: profile.pseudo,
+         customDisplayName,
+         email: current.email
+       });
+      
+      await userRef.set(profile as any);
+  
+      return profile;
+    } catch (error: any) {
+      retryCount++;
+      
+      // Si c'est une erreur temporaire et qu'on peut retry
+      if (error.code === 'firestore/unavailable' && retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+        continue;
+      }
+      
+      // Erreur fatale ou plus de retry
+      throw new Error(`Erreur lors de la création du profil: ${error.message}`);
     }
-    
-    // Marquer que l'utilisateur a défini son pseudo initial
-    updates.hasSetInitialDisplayName = true;
   }
   
-  console.log('🔥 updateUserProfile - UID:', uid);
-  console.log('🔥 updateUserProfile - Updates:', updates);
-  console.log('🔥 updateUserProfile - Référence Firestore:', ref.path);
-  
-  // Mise à jour du profil dans Firestore
-  await ref.update(updates);
-  console.log('✅ updateUserProfile - Mise à jour Firestore réussie');
-  
-  // Si le displayName a changé, mettre à jour aussi dans les friendships
-  if (updates.displayName) {
-    console.log('🔄 Mise à jour du displayName dans les friendships...');
-    
-    // Trouver tous les documents friendships où cet utilisateur est l'ami
-    const friendshipsQuery = firestore()
-      .collection('friendships')
-      .where('friendId', '==', uid);
-    
-    const friendshipsSnap = await friendshipsQuery.get();
-    console.log(`📊 Trouvé ${friendshipsSnap.size} friendships à mettre à jour`);
-    
-    // Mettre à jour chaque friendship
-    const batch = firestore().batch();
-    friendshipsSnap.forEach(doc => {
-      const friendshipRef = firestore().collection('friendships').doc(doc.id);
-      batch.update(friendshipRef, { 
-        friendDisplayName: updates.displayName,
-        updatedAt: firestore.FieldValue.serverTimestamp()
-      });
-    });
-    
-    if (friendshipsSnap.size > 0) {
-      await batch.commit();
-      console.log('✅ Friendships mises à jour avec succès');
-    } else {
-      console.log('ℹ️ Aucune friendship à mettre à jour');
-    }
-  }
+  throw new Error('Nombre maximum de tentatives atteint');
 };
 
 export const getMyCode = async (): Promise<string> => {
@@ -136,7 +84,9 @@ export const getMyCode = async (): Promise<string> => {
   return prof.code;
 };
 
-// Ajouter un FCK
+
+
+
 export const addFck = async (params: {
   latitude: number;
   longitude: number;
@@ -151,6 +101,15 @@ export const addFck = async (params: {
   const current = auth().currentUser;
   if (!current) throw new Error('Utilisateur non connecté');
 
+  // Récupérer le profil utilisateur pour avoir son pseudo
+  let userPseudo = 'Utilisateur';
+  try {
+    const userProfile = await ensureUserProfile();
+    userPseudo = userProfile.pseudo || 'Utilisateur';
+  } catch (error) {
+    console.error('Erreur lors de la récupération du profil utilisateur:', error);
+  }
+
   const payload = {
     latitude: params.latitude,
     longitude: params.longitude,
@@ -163,6 +122,7 @@ export const addFck = async (params: {
     userId: current.uid,
     userEmail: current.email || 'Anonyme',
     userColor: params.userColor || '#FF6A2B',
+    userPseudo: userPseudo, // Ajouter le pseudo de l'utilisateur
     createdAt: firestore.FieldValue.serverTimestamp(),
   };
 
@@ -173,18 +133,36 @@ export const addFck = async (params: {
 export const subscribeToFcks = (callback: (fcks: Fck[]) => void) => {
   const current = auth().currentUser;
   if (!current) {
-    console.log('❌ subscribeToFcks - Utilisateur non connecté');
     callback([]);
     return () => {};
   }
 
-  console.log('🔥 subscribeToFcks - Début pour utilisateur:', current.uid);
+  let friendsUnsubscribe: (() => void) | null = null;
+  let fcksUnsubscribe: (() => void) | null = null;
+  let isCancelled = false;
 
-  // Récupérer d'abord la liste des amis de l'utilisateur
-  const friendsUnsubscribe = firestore()
+  // Fonction de nettoyage centralisée
+  const cleanup = () => {
+    if (isCancelled) return;
+    isCancelled = true;
+    
+    if (friendsUnsubscribe) {
+      friendsUnsubscribe();
+      friendsUnsubscribe = null;
+    }
+    if (fcksUnsubscribe) {
+      fcksUnsubscribe();
+      fcksUnsubscribe = null;
+    }
+  };
+
+  // Abonnement aux amis
+  friendsUnsubscribe = firestore()
     .collection('friendships')
     .where('status', '==', 'accepted')
     .onSnapshot(async (friendsSnapshot) => {
+      if (isCancelled) return;
+      
       try {
         // Construire la liste des UIDs autorisés (utilisateur + amis)
         const authorizedUserIds = new Set<string>([current.uid]);
@@ -198,56 +176,93 @@ export const subscribeToFcks = (callback: (fcks: Fck[]) => void) => {
           }
         });
 
-        console.log('🔥 subscribeToFcks - UIDs autorisés:', Array.from(authorizedUserIds));
+
+
+        // Nettoyer l'abonnement précédent aux FCKs
+        if (fcksUnsubscribe) {
+          fcksUnsubscribe();
+        }
 
         // Maintenant récupérer seulement les points des utilisateurs autorisés
-        const fcksUnsubscribe = firestore()
+        fcksUnsubscribe = firestore()
           .collection(FCKS_COLLECTION)
           .where('userId', 'in', Array.from(authorizedUserIds))
           .orderBy('createdAt', 'desc')
-          .onSnapshot((fcksSnapshot) => {
+          .onSnapshot(async (fcksSnapshot) => {
+            if (isCancelled) return;
+            
             if (fcksSnapshot && fcksSnapshot.docs) {
-              const list = fcksSnapshot.docs.map(d => ({
-                id: d.id,
-                ...d.data(),
-                createdAt: d.data().createdAt?.toDate() || new Date(),
-              })) as Fck[];
+              try {
+                // Récupérer les profils des utilisateurs pour avoir leurs pseudos
+                const userIds = [...new Set(fcksSnapshot.docs.map(d => d.data().userId))];
+                const userProfiles = new Map<string, UserProfile>();
+                
+                // Récupérer tous les profils en une seule requête
+                if (userIds.length > 0) {
+                  const profilesQuery = await firestore()
+                    .collection('users')
+                    .where(firestore.FieldPath.documentId(), 'in', userIds)
+                    .get();
+                  
+                  profilesQuery.docs.forEach(doc => {
+                    userProfiles.set(doc.id, doc.data() as UserProfile);
+                  });
+                }
+                
+                const list = fcksSnapshot.docs.map(d => {
+                  const data = d.data();
+                  const userProfile = userProfiles.get(data.userId);
+                  
+                                     return {
+                     id: d.id,
+                     ...data,
+                     createdAt: data.createdAt?.toDate() || new Date(),
+                     // Enrichir avec le pseudo de l'utilisateur
+                     userPseudo: userProfile?.pseudo || 'Utilisateur',
+                   };
+                }) as (Fck & { userPseudo: string })[];
+                
+                callback(list);
+              } catch (error) {
+                if (isCancelled) return;
+                console.error('❌ subscribeToFcks - Erreur lors de l\'enrichissement des profils:', error);
+                // Fallback : retourner les FCKs sans enrichissement
+                             const list = fcksSnapshot.docs.map(d => ({
+                 id: d.id,
+                 ...d.data(),
+                 createdAt: d.data().createdAt?.toDate() || new Date(),
+                 userPseudo: 'Utilisateur',
+               })) as (Fck & { userPseudo: string })[];
               
-              console.log('🔥 subscribeToFcks - Points récupérés:', list.length);
               callback(list);
+              }
             } else {
               callback([]);
             }
           }, (error) => {
+            if (isCancelled) return;
             console.error('❌ subscribeToFcks - Erreur lors de la récupération des points:', error);
             callback([]);
           });
 
-        // Retourner la fonction de nettoyage
-        return () => {
-          friendsUnsubscribe();
-          fcksUnsubscribe();
-        };
       } catch (error) {
+        if (isCancelled) return;
         console.error('❌ subscribeToFcks - Erreur lors de la récupération des amis:', error);
         callback([]);
-        return friendsUnsubscribe;
       }
     }, (error) => {
+      if (isCancelled) return;
       console.error('❌ subscribeToFcks - Erreur lors de la récupération des amis:', error);
       callback([]);
     });
 
   // Retourner la fonction de nettoyage
-  return () => {
-    friendsUnsubscribe();
-  };
+  return cleanup;
 };
 
 export const getUserFcks = async (userId: string): Promise<Fck[]> => {
   const current = auth().currentUser;
   if (!current) {
-    console.log('❌ getUserFcks - Utilisateur non connecté');
     return [];
   }
 
@@ -269,7 +284,6 @@ export const getUserFcks = async (userId: string): Promise<Fck[]> => {
     });
 
     if (!isFriend) {
-      console.log('❌ getUserFcks - Utilisateur non autorisé à voir les points de:', userId);
       return [];
     }
   }
@@ -280,25 +294,56 @@ export const getUserFcks = async (userId: string): Promise<Fck[]> => {
     .orderBy('createdAt', 'desc')
     .get();
     
-  return snap.docs.map(d => ({
-    id: d.id,
-    ...d.data(),
-    createdAt: d.data().createdAt?.toDate() || new Date(),
-  })) as Fck[];
+  // Récupérer le profil de l'utilisateur pour avoir son pseudo
+  let userProfile: UserProfile | null = null;
+  try {
+    const userDoc = await firestore().collection('users').doc(userId).get();
+    if (userDoc.exists()) {
+      userProfile = userDoc.data() as UserProfile;
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération du profil utilisateur:', error);
+  }
+    
+     return snap.docs.map(d => ({
+     id: d.id,
+     ...d.data(),
+     createdAt: d.data().createdAt?.toDate() || new Date(),
+     userPseudo: userProfile?.pseudo || 'Utilisateur',
+   })) as Fck[];
 };
 
 export const subscribeToUserFcks = (userId: string, callback: (fcks: Fck[]) => void) => {
   return firestore()
     .collection(FCKS_COLLECTION)
     .where('userId', '==', userId)
-    .onSnapshot((snap) => {
+    .onSnapshot(async (snap) => {
       if (snap && snap.docs) {
-        const list = snap.docs.map(d => ({
-          id: d.id,
-          ...d.data(),
-          createdAt: d.data().createdAt?.toDate() || new Date(),
-        })) as Fck[];
+        try {
+          // Récupérer le profil de l'utilisateur pour avoir son pseudo
+          const userDoc = await firestore().collection('users').doc(userId).get();
+          const userProfile = userDoc.exists() ? (userDoc.data() as UserProfile) : null;
+          
+                     const list = snap.docs.map(d => ({
+             id: d.id,
+             ...d.data(),
+             createdAt: d.data().createdAt?.toDate() || new Date(),
+             userPseudo: userProfile?.pseudo || 'Utilisateur',
+           })) as Fck[];
+          
+          callback(list);
+        } catch (error) {
+          console.error('Erreur lors de la récupération du profil utilisateur:', error);
+          // Fallback : retourner les FCKs sans enrichissement
+                 const list = snap.docs.map(d => ({
+           id: d.id,
+           ...d.data(),
+           createdAt: d.data().createdAt?.toDate() || new Date(),
+           userPseudo: 'Utilisateur',
+         })) as Fck[];
+          
         callback(list);
+        }
       } else {
         callback([]);
       }
@@ -340,28 +385,23 @@ export const deleteFck = async (fckId: string) => {
   await ref.delete();
 };
 
-// Fonction pour supprimer complètement le compte utilisateur
+
 export const deleteUserAccount = async (password?: string): Promise<void> => {
   const current = auth().currentUser;
   if (!current) throw new Error('Utilisateur non connecté');
   const uid = current.uid;
 
-  console.log('🗑️ Début de la suppression du compte utilisateur:', uid);
-
   try {
     // 0. Réauthentification si nécessaire (pour les opérations sensibles)
     if (password) {
-      console.log('🔐 Réauthentification...');
       const email = current.email;
       if (!email) throw new Error('Email non disponible pour la réauthentification');
       
       const credential = auth.EmailAuthProvider.credential(email, password);
       await current.reauthenticateWithCredential(credential);
-      console.log('✅ Réauthentification réussie');
     }
 
     // 1. Supprimer tous les FCKs de l'utilisateur
-    console.log('🗑️ Suppression des FCKs...');
     const userFcks = await getUserFcks(uid);
     const batch = firestore().batch();
     
@@ -373,11 +413,9 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
     
     if (userFcks.length > 0) {
       await batch.commit();
-      console.log(`🗑️ ${userFcks.length} FCKs supprimés`);
     }
 
     // 2. Supprimer toutes les réactions de l'utilisateur
-    console.log('🗑️ Suppression des réactions...');
     const reactionsQuery = firestore()
       .collection('reactions')
       .where('userId', '==', uid);
@@ -392,11 +430,9 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
     
     if (reactionsSnap.size > 0) {
       await reactionsBatch.commit();
-      console.log(`🗑️ ${reactionsSnap.size} réactions supprimées`);
     }
 
     // 3. Supprimer toutes les friendships où l'utilisateur apparaît (propriétaire OU ami)
-    console.log('🗑️ Suppression des friendships...');
     
     // 3a. Friendships où l'utilisateur est propriétaire
     const friendshipsOwnerQuery = firestore()
@@ -404,7 +440,6 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
       .where('userId', '==', uid);
     
     const friendshipsOwnerSnap = await friendshipsOwnerQuery.get();
-    console.log(`📊 Trouvé ${friendshipsOwnerSnap.size} friendships où l'utilisateur est propriétaire`);
     
     // 3b. Friendships où l'utilisateur est ami
     const friendshipsFriendQuery = firestore()
@@ -412,7 +447,6 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
       .where('friendId', '==', uid);
     
     const friendshipsFriendSnap = await friendshipsFriendQuery.get();
-    console.log(`📊 Trouvé ${friendshipsFriendSnap.size} friendships où l'utilisateur est ami`);
     
     // 3c. Supprimer toutes les friendships en une seule fois
     const allFriendships = [...friendshipsOwnerSnap.docs, ...friendshipsFriendSnap.docs];
@@ -425,24 +459,15 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
       });
       
       await friendshipsBatch.commit();
-      console.log(`🗑️ ${allFriendships.length} friendships supprimées au total`);
-    } else {
-      console.log('ℹ️ Aucune friendship à supprimer');
     }
 
     // 4. Supprimer le profil utilisateur
-    console.log('🗑️ Suppression du profil utilisateur...');
     const userRef = firestore().collection(USERS_COLLECTION).doc(uid);
     await userRef.delete();
 
     // 5. Supprimer le compte Firebase Authentication
-    console.log('🗑️ Suppression du compte Firebase Auth...');
     await current.delete();
-
-    console.log('✅ Compte utilisateur supprimé avec succès');
   } catch (error: any) {
-    console.error('❌ Erreur lors de la suppression du compte:', error);
-    
     // Gestion spécifique de l'erreur de réauthentification
     if (error?.code === 'auth/requires-recent-login') {
       throw new Error('Réauthentification requise. Veuillez saisir votre mot de passe.');
@@ -452,11 +477,10 @@ export const deleteUserAccount = async (password?: string): Promise<void> => {
   }
 };
 
-// Fonction utilitaire pour obtenir tous les points visibles par l'utilisateur connecté
+
 export const getVisibleFcks = async (): Promise<Fck[]> => {
   const current = auth().currentUser;
   if (!current) {
-    console.log('❌ getVisibleFcks - Utilisateur non connecté');
     return [];
   }
 
@@ -479,8 +503,6 @@ export const getVisibleFcks = async (): Promise<Fck[]> => {
       }
     });
 
-    console.log('🔥 getVisibleFcks - UIDs autorisés:', Array.from(authorizedUserIds));
-
     // Récupérer les points des utilisateurs autorisés
     const fcksQuery = await firestore()
       .collection(FCKS_COLLECTION)
@@ -488,17 +510,41 @@ export const getVisibleFcks = async (): Promise<Fck[]> => {
       .orderBy('createdAt', 'desc')
       .get();
 
-    const fcks = fcksQuery.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate() || new Date(),
-    })) as Fck[];
+    // Récupérer les profils des utilisateurs pour avoir leurs pseudos
+    const userIds = [...new Set(fcksQuery.docs.map(d => d.data().userId))];
+    const userProfiles = new Map<string, UserProfile>();
+    
+    if (userIds.length > 0) {
+      try {
+        const profilesQuery = await firestore()
+          .collection('users')
+          .where(firestore.FieldPath.documentId(), 'in', userIds)
+          .get();
+        
+        profilesQuery.docs.forEach(doc => {
+          userProfiles.set(doc.id, doc.data() as UserProfile);
+        });
+      } catch (error) {
+        console.error('Erreur lors de la récupération des profils utilisateurs:', error);
+      }
+    }
 
-    console.log('🔥 getVisibleFcks - Points récupérés:', fcks.length);
+    const fcks = fcksQuery.docs.map(d => {
+      const data = d.data();
+      const userProfile = userProfiles.get(data.userId);
+      
+             return {
+       id: d.id,
+         ...data,
+       createdAt: d.data().createdAt?.toDate() || new Date(),
+         userPseudo: userProfile?.pseudo || 'Utilisateur',
+       };
+    }) as Fck[];
+
     return fcks;
 
   } catch (error) {
-    console.error('❌ getVisibleFcks - Erreur:', error);
+    console.error('Erreur getVisibleFcks:', error);
     return [];
   }
 };

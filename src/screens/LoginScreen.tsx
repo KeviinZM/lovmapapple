@@ -9,10 +9,11 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { auth } from '../lib/firebase';
-import { signInWithGoogle } from '../lib/googleSignIn';
-import { ensureUserProfile } from '../lib/mapService';
+import auth from '@react-native-firebase/auth';
+import { Translations } from '../i18n';
 import { useLanguage } from '../i18n/LanguageContext';
+
+import { ensureUserProfile } from '../lib/mapService';
 import LanguageButton from '../components/LanguageButton';
 
 interface LoginScreenProps {
@@ -42,53 +43,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
         onNavigateToHome();
       }
     } catch (error: any) {
+      console.error('❌ Erreur de connexion:', error);
       Alert.alert(t('auth.loginError'), error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    try {
-      
-      
-      // Étape 1: Google Sign-In
-      const userInfo = await signInWithGoogle();
-      
-
-      // Récupérer l'idToken de façon robuste (selon version de la lib)
-      const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
-
-      // Vérifier la présence du token
-      if (idToken) {
-        // Étape 2: Créer credential Firebase
-        const credential = auth.GoogleAuthProvider.credential(idToken);
-        
-        
-        // Étape 3: Sign in Firebase
-        const result = await auth().signInWithCredential(credential);
-        
-        try { await ensureUserProfile(); } catch {}
-        
-        // Navigation forcée vers le HomeScreen après connexion réussie
-        if (onNavigateToHome) {
-          onNavigateToHome();
-        } else {
-          Alert.alert(t('common.success'), t('auth.loginSuccess'));
-        }
-      } else {
-        console.error('Structure userInfo inattendue:', userInfo);
-        console.error('Propriétés disponibles:', Object.keys(userInfo || {}));
-        throw new Error('Pas de token Google reçu. Vérifiez la configuration.');
-      }
-      
-    } catch (error: any) {
-      console.error('Erreur dans handleGoogleLogin:', error);
-      Alert.alert(
-        t('auth.googleSignInError'), 
-        error.message || t('auth.googleSignInError')
-      );
     } finally {
       setLoading(false);
     }
@@ -105,6 +61,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
         <LanguageButton style={styles.langRow} />
       </View>
 
+
+
       <View style={styles.form}>
         <View style={styles.tips}>
           <View style={[styles.tipCard, styles.tipOrange]}> 
@@ -120,6 +78,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
             <Text style={styles.tipText}>{t('login.tips.addFriends')}</Text>
           </View>
         </View>
+
         <TextInput
           style={styles.input}
           placeholder={t('auth.email')}
@@ -128,6 +87,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
           keyboardType="email-address"
           autoCapitalize="none"
         />
+        
         <TextInput
           style={styles.input}
           placeholder={t('auth.password')}
@@ -144,26 +104,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-                         <View style={styles.loginBtnContent}>
-               <Text style={styles.loginButtonText}>{t('auth.signIn')}</Text>
-             </View>
+            <View style={styles.loginBtnContent}>
+              <Text style={styles.loginButtonText}>{t('auth.signIn')}</Text>
+            </View>
           )}
-        </TouchableOpacity>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          style={styles.googleButton}
-          onPress={handleGoogleLogin}
-          disabled={loading}
-        >
-          <View style={styles.googleBtnContent}>
-            <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
-          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.signUpLink} onPress={onNavigateToSignUp}>
@@ -187,20 +131,10 @@ const styles = StyleSheet.create({
     marginTop: 36,
     marginBottom: 20,
   },
-  logoIcon: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  brand: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#777',
-    textAlign: 'center',
-    marginTop: 6,
+  logoImage: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
   },
   langRow: {
     flexDirection: 'row',
@@ -208,20 +142,18 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 10,
   },
-  langIcon: { fontSize: 14, color: '#555' },
-  langText: { color: '#333', fontWeight: '700' },
   form: {
     flex: 1,
   },
   tips: {
-    marginBottom: 20, // Augmenté pour plus d'espace avant le formulaire
-    gap: 8, // Réduit pour rapprocher les cartes
+    marginBottom: 20,
+    gap: 8,
   },
   tipCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8, // Réduit de 10 à 8
-    paddingVertical: 10, // Réduit de 12 à 10
+    gap: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -245,63 +177,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
-    marginBottom: 12, // Réduit de 20 à 12
+    marginBottom: 12,
   },
-  loginBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  loginButtonIcon: { color: '#fff', fontSize: 14 },
+  loginBtnContent: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8 
+  },
   loginButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16, // Réduit de 20 à 16
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 15,
-    color: '#666',
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 20,
-  },
-  googleBtnContent: { 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  googleG: { color: '#4285F4', fontWeight: '800', fontSize: 16 },
-  googleButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '500',
-  },
   signUpLink: {
     alignItems: 'center',
-    marginTop: 16, // Réduit de 20 à 16 pour remonter le bouton
+    marginTop: 16,
   },
   signUpText: {
     fontSize: 14,
     color: '#FFA500',
     fontWeight: '600',
   },
-  logoImage: {
-    width: 80,
-    height: 80,
-    marginBottom: 12, // Augmenté pour plus d'espace après le logo
-  },
+
 });
 
 export default LoginScreen;

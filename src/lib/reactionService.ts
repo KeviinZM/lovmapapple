@@ -1,7 +1,8 @@
 import firestore from '@react-native-firebase/firestore';
 import { auth } from './firebase';
+import { ReactionCount, EmojiData } from '../types';
 
-// Types pour les réactions
+
 export interface Reaction {
   id: string;
   lovId: string;
@@ -11,33 +12,27 @@ export interface Reaction {
   timestamp: Date;
 }
 
-export interface ReactionCount {
-  emoji: string;
-  count: number;
-  hasReacted: boolean; // Si l'utilisateur actuel a réagi avec cet émoji
-}
-
 export interface UserReaction {
   emoji: string;
   timestamp: Date;
 }
 
-// Collection Firestore pour les réactions
+
 const REACTIONS_COLLECTION = 'reactions';
 
-// Émojis disponibles avec leurs significations
-export const AVAILABLE_EMOJIS = [
-  { emoji: '❤️', meaning: 'J\'adore ce lieu !' },
-  { emoji: '🔥', meaning: 'Endroit chaud !' },
-  { emoji: '👍', meaning: 'Sympa !' },
-  { emoji: '😍', meaning: 'Magnifique !' },
-  { emoji: '💯', meaning: 'Parfait !' },
-  { emoji: '😎', meaning: 'Style !' },
-  { emoji: '⭐', meaning: 'Recommandé !' },
-  { emoji: '💪', meaning: 'Endroit fort !' },
+
+export const AVAILABLE_EMOJIS: EmojiData[] = [
+  { emoji: '❤️', label: 'J\'adore ce lieu !' },
+  { emoji: '🔥', label: 'Endroit chaud !' },
+  { emoji: '👍', label: 'Sympa !' },
+  { emoji: '😍', label: 'Magnifique !' },
+  { emoji: '💯', label: 'Parfait !' },
+  { emoji: '😎', label: 'Style !' },
+  { emoji: '⭐', label: 'Recommandé !' },
+  { emoji: '💪', label: 'Endroit fort !' },
 ];
 
-// Ajouter une réaction (ou la retirer si elle existe déjà)
+
 export const toggleReaction = async (lovId: string, emoji: string): Promise<void> => {
   try {
     const user = auth().currentUser;
@@ -64,12 +59,11 @@ export const toggleReaction = async (lovId: string, emoji: string): Promise<void
       await reactionRef.set(reaction);
     }
   } catch (error) {
-    console.error('Erreur lors de la gestion de la réaction:', error);
     throw error;
   }
 };
 
-// Récupérer toutes les réactions d'un lieu avec compteurs
+
 export const getReactionsWithCounts = async (lovId: string): Promise<ReactionCount[]> => {
   try {
     const user = auth().currentUser;
@@ -102,7 +96,6 @@ export const getReactionsWithCounts = async (lovId: string): Promise<ReactionCou
       hasReacted: userReactions.has(emoji),
     }));
   } catch (error) {
-    console.error('Erreur lors de la récupération des réactions:', error);
     return AVAILABLE_EMOJIS.map(({ emoji }) => ({
       emoji,
       count: 0,
@@ -111,7 +104,7 @@ export const getReactionsWithCounts = async (lovId: string): Promise<ReactionCou
   }
 };
 
-// S'abonner aux réactions d'un lieu en temps réel
+
 export const subscribeToReactions = (
   lovId: string,
   callback: (reactions: ReactionCount[]) => void
@@ -128,12 +121,11 @@ export const subscribeToReactions = (
         callback([]);
       }
     }, (error) => {
-      console.error('Erreur lors de l\'abonnement aux réactions:', error);
       callback([]);
     });
 };
 
-// Récupérer les réactions d'un utilisateur sur un lieu
+
 export const getUserReactionsOnLov = async (lovId: string): Promise<UserReaction[]> => {
   try {
     const user = auth().currentUser;
@@ -153,12 +145,11 @@ export const getUserReactionsOnLov = async (lovId: string): Promise<UserReaction
       };
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération des réactions utilisateur:', error);
     return [];
   }
 };
 
-// Supprimer toutes les réactions d'un lieu (pour la suppression d'un LOV)
+
 export const deleteAllReactionsForLov = async (lovId: string): Promise<void> => {
   try {
     const reactionsSnapshot = await firestore()
@@ -173,7 +164,6 @@ export const deleteAllReactionsForLov = async (lovId: string): Promise<void> => 
 
     await batch.commit();
   } catch (error) {
-    console.error('Erreur lors de la suppression des réactions:', error);
     throw error;
   }
 };

@@ -4,20 +4,12 @@ buildscript {
         minSdkVersion = 24
         compileSdkVersion = 35
         targetSdkVersion = 35
-        ndkVersion = "27.1.12297006"
+        ndkVersion = "25.2.9519653"
         kotlinVersion = "1.9.24"
     }
     repositories {
         google()
         mavenCentral()
-        maven {
-            url 'https://api.mapbox.com/downloads/v2/releases/maven'
-            authentication { basic(BasicAuthentication) }
-            credentials {
-                username = 'mapbox'
-                password = project.findProperty('MAPBOX_DOWNLOADS_TOKEN') ?: System.getenv('MAPBOX_DOWNLOADS_TOKEN')
-            }
-        }
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
@@ -33,13 +25,5 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url 'https://api.mapbox.com/downloads/v2/releases/maven'
-            authentication { basic(BasicAuthentication) }
-            credentials {
-                username = 'mapbox'
-                password = project.findProperty('MAPBOX_DOWNLOADS_TOKEN') ?: System.getenv('MAPBOX_DOWNLOADS_TOKEN')
-            }
-        }
     }
 }

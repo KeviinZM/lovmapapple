@@ -16,12 +16,11 @@ service cloud.firestore {
              (request.auth.uid == userId || request.auth.uid == friendId);
     }
     
-    // Nouvelle fonction pour vérifier si l'utilisateur peut voir les points d'un autre utilisateur
+    // Fonction optimisée pour vérifier si l'utilisateur peut voir les points
     function canViewUserPoints(userId) {
       return isAuthenticated() && 
              (request.auth.uid == userId || 
-              // Vérifier si une amitié existe entre l'utilisateur actuel et l'utilisateur cible
-              // Cette vérification se fait au niveau de l'application, pas dans les règles
+              // Vérification d'amitié - sera gérée au niveau de l'application
               true);
     }
     
@@ -33,33 +32,49 @@ service cloud.firestore {
       return name is string && name.size() > 0 && name.size() <= 50;
     }
     
+    function isValidPseudo(pseudo) {
+      return pseudo is string && pseudo.size() >= 3 && pseudo.size() <= 30;
+    }
+    
     function isValidEmoji(emoji) {
       return emoji in ['❤️', '👍', '😊', '🎉', '🔥', '💯', '🌟', '💖'];
     }
     
+    function isValidRating(rating) {
+      return rating is number && rating >= 1 && rating <= 5;
+    }
+    
+    function isValidCoordinates(lat, lng) {
+      return lat is number && lng is number && 
+             lat >= -90 && lat <= 90 && 
+             lng >= -180 && lng <= 180;
+    }
+    
     // ===== RÈGLES POUR LES PROFILS UTILISATEURS =====
     match /users/{userId} {
-      // Lecture : soi-même OU recherche pour ajouter des amis (par code)
+      // Lecture : soi-même OU recherche pour ajouter des amis (par code) OU lecture des profils des amis
       allow read: if isOwner(userId) || 
                    (isAuthenticated() && 
-                    request.query.limit <= 1);
+                    (request.query.limit <= 1 || // Recherche par code
+                     request.query.limit == null)); // Lecture directe des profils des amis
       
-      // Création : seulement soi-même avec validation
+      // Création : seulement soi-même avec validation stricte
       allow create: if isOwner(userId) && 
-                     request.resource.data.keys().hasAll(['uid', 'email', 'displayName']) &&
+                     request.resource.data.keys().hasAll(['uid', 'email', 'pseudo', 'displayName', 'code']) &&
                      request.resource.data.uid == userId &&
                      isValidEmail(request.resource.data.email) &&
+                     isValidPseudo(request.resource.data.pseudo) &&
                      isValidDisplayName(request.resource.data.displayName) &&
-                     (request.resource.data.code is string || request.resource.data.code == null) &&
-                     (request.resource.data.hasSetInitialDisplayName is bool || request.resource.data.hasSetInitialDisplayName == null);
+                     request.resource.data.code is string &&
+                     request.resource.data.code.size() == 5;
       
       // Modification : seulement soi-même avec validation
       allow update: if isOwner(userId) && 
                      request.resource.data.uid == userId &&
                      (request.resource.data.email == resource.data.email || isValidEmail(request.resource.data.email)) &&
+                     (request.resource.data.pseudo == resource.data.pseudo) && // Pseudo immuable
                      isValidDisplayName(request.resource.data.displayName) &&
-                     (request.resource.data.code is string || request.resource.data.code == null) &&
-                     (request.resource.data.hasSetInitialDisplayName is bool || request.resource.data.hasSetInitialDisplayName == null);
+                     request.resource.data.code == resource.data.code; // Code immuable
       
       // Suppression : seulement soi-même
       allow delete: if isOwner(userId);
@@ -67,17 +82,23 @@ service cloud.firestore {
     
     // ===== RÈGLES POUR LES LOVs (FCKs) =====
     match /fcks/{fckId} {
-      // Lecture : seulement soi-même OU amis (nouvelle règle de sécurité)
+      // Lecture : seulement soi-même OU amis
       allow read: if canViewUserPoints(resource.data.userId);
       
-      // Création : seulement soi-même avec validation simplifiée
+      // Création : seulement soi-même avec validation stricte
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
-                     request.resource.data.latitude is number &&
-                     request.resource.data.longitude is number;
+                     isValidCoordinates(request.resource.data.latitude, request.resource.data.longitude) &&
+                     request.resource.data.emoji in ['aubergine', 'peche'] &&
+                     request.resource.data.locationType in ['address', 'city'] &&
+                     isValidRating(request.resource.data.rating) &&
+                     request.resource.data.addressLabel is string &&
+                     request.resource.data.addressLabel.size() > 0;
       
-      // Modification : seulement le propriétaire
-      allow update: if isOwner(resource.data.userId);
+      // Modification : seulement le propriétaire avec validation
+      allow update: if isOwner(resource.data.userId) &&
+                     (request.resource.data.userId == resource.data.userId) && // userId immuable
+                     (request.resource.data.userEmail == resource.data.userEmail); // userEmail immuable
       
       // Suppression : seulement le propriétaire
       allow delete: if isOwner(resource.data.userId);
@@ -88,11 +109,12 @@ service cloud.firestore {
       // Lecture : seulement utilisateurs connectés
       allow read: if isAuthenticated();
       
-      // Création : seulement soi-même avec validation simplifiée
+      // Création : seulement soi-même avec validation
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
                      request.resource.data.emoji is string &&
-                     request.resource.data.lovId is string;
+                     request.resource.data.lovId is string &&
+                     request.resource.data.lovId.size() > 0;
       
       // Suppression : seulement l'auteur de la réaction
       allow delete: if isAuthenticated() && 
@@ -104,58 +126,29 @@ service cloud.firestore {
     
     // ===== RÈGLES POUR LES AMITIÉS SÉCURISÉES =====
     match /friendships/{friendshipId} {
-      // Lecture : utilisateurs connectés peuvent lire les amitiés où ils sont impliqués
-      // OU lire toutes les amitiés pour la gestion des amis (nécessaire pour l'app)
+      // Lecture : utilisateurs connectés peuvent lire toutes les amitiés
+      // (nécessaire pour l'affichage de la liste des amis)
       allow read: if isAuthenticated();
       
-      // Création : seulement soi-même avec validation
+      // Création : seulement soi-même avec validation de base
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
-                     request.resource.data.keys().hasAll(['userId', 'friendId', 'status']) &&
-                     request.resource.data.status in ['pending', 'accepted', 'rejected'];
+                     request.resource.data.friendId is string &&
+                     request.resource.data.friendId != request.auth.uid;
       
-      // Modification : seulement les parties impliquées
+      // Modification : seulement les utilisateurs impliqués
       allow update: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid || 
-                      resource.data.friendId == request.auth.uid);
+                     (request.auth.uid == resource.data.userId || 
+                      request.auth.uid == resource.data.friendId);
       
-      // Suppression : seulement les parties impliquées (propriétaire OU ami)
+      // Suppression : seulement les utilisateurs impliqués
       allow delete: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid || 
-                      resource.data.friendId == request.auth.uid);
+                     (request.auth.uid == resource.data.userId || 
+                      request.auth.uid == resource.data.friendId);
     }
     
-    // ===== RÈGLES POUR LES AMIS (SOUS-COLLECTION) =====
-    match /users/{userId}/friends/{friendId} {
-      // Lecture/écriture : seulement le propriétaire
-      allow read, write: if isOwner(userId);
-    }
-    
-    // ===== RÈGLES POUR LES STATISTIQUES SÉCURISÉES =====
-    match /stats/{statId} {
-      // Lecture/écriture : seulement le propriétaire
-      allow read, write: if isOwner(resource.data.userId);
-    }
-    
-    // ===== RÈGLES POUR LES NOTIFICATIONS SÉCURISÉES =====
-    match /notifications/{notificationId} {
-      // Lecture : seulement le destinataire
-      allow read: if isAuthenticated() && 
-                   resource.data.recipientId == request.auth.uid;
-      
-      // Création : seulement pour des utilisateurs connectés
-      allow create: if isAuthenticated() && 
-                     request.resource.data.recipientId is string &&
-                     request.resource.data.recipientId.size() > 0;
-      
-      // Modification/suppression : seulement le destinataire
-      allow update, delete: if isAuthenticated() && 
-                             resource.data.recipientId == request.auth.uid;
-    }
-    
-    // ===== RÈGLES DE SÉCURITÉ GÉNÉRALES =====
-    
-    // Permettre la création de nouvelles collections (nécessaire pour friendships)
+    // ===== RÈGLE PAR DÉFAUT =====
+    // Toutes les autres collections sont refusées par défaut
     match /{document=**} {
       allow read, write: if false;
     }

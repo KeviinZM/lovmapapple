@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Pressable, Modal, TextInput, ScrollView, PermissionsAndroid, Platform, Image } from 'react-native';
-
 import { auth } from '../lib/firebase';
-import { addFck, getUserFcks, subscribeToFcks, subscribeToUserFcks, Fck, deleteFck, updateFck, ensureUserProfile, getMyCode, updateUserProfile, deleteUserAccount } from '../lib/mapService';
-import { subscribeToFriendships, Friend, addFriendByCode, removeFriend } from '../lib/friendshipService';
-import { ReactionCount, toggleReaction, subscribeToReactions, AVAILABLE_EMOJIS } from '../lib/reactionService';
+import { addFck, getUserFcks, subscribeToFcks, subscribeToUserFcks, deleteFck, updateFck, ensureUserProfile, getMyCode, deleteUserAccount } from '../lib/mapService';
+import { subscribeToFriendships, addFriendByCode, removeFriend } from '../lib/friendshipService';
+import { toggleReaction, subscribeToReactions, AVAILABLE_EMOJIS } from '../lib/reactionService';
+import { Friend, ReactionCount, Fck } from '../types';
 import { WebView } from 'react-native-webview';
 import firestore from '@react-native-firebase/firestore';
 import LanguageButton from '../components/LanguageButton';
 import { useLanguage } from '../i18n/LanguageContext';
-import { MAPBOX_TOKEN } from '@env';
 import LegalNavigator from '../navigation/LegalNavigator';
 
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2V2aWluem0iLCJhIjoiY21kcDFjMTZnMDg5MjJqczhndXhsYTZvZiJ9.gZWhKGtIcOd61OHQ0pJKfg';
 
-// Composant inline pour afficher les réactions avec taille configurable
 const ReactionsInline: React.FC<{ lovId: string; size?: 'small' | 'large' }> = ({ lovId, size = 'large' }) => {
   const [reactions, setReactions] = useState<ReactionCount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -135,8 +134,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   const [pwdNew, setPwdNew] = useState('');
   const [pwdConfirm, setPwdConfirm] = useState('');
 
-  const [pseudoInput, setPseudoInput] = useState('');
-  const [savingPseudo, setSavingPseudo] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -156,12 +153,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   const [editRating, setEditRating] = useState<number>(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // Amis
+  const [userLocation, setUserLocation] = useState<{ longitude: number; latitude: number } | null>(null);
   const [myCode, setMyCode] = useState<string>('');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [addCode, setAddCode] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // État du panneau "Marquez un LOV"
+  const [newFckOpen, setNewFckOpen] = useState(false);
+  const [locationType, setLocationType] = useState<'address' | 'city'>('address');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; label: string; longitude: number; latitude: number }>>([]);
+  const [skipSearch, setSkipSearch] = useState(false); // évite un 2e affichage après sélection
+  const [selectedCoords, setSelectedCoords] = useState<{ longitude: number; latitude: number } | null>(null);
+  const [selectedEmoji, setSelectedEmoji] = useState<'aubergine' | 'peche' | null>(null);
+  const [partnerName, setPartnerName] = useState('');
+  const [rating, setRating] = useState<number>(0);
+
+  // Token Mapbox (utilisé pour la recherche) - Maintenant sécurisé via variables d'environnement
+  const token = MAPBOX_TOKEN;
 
   const refreshUserFcks = async () => {
     if (!user) return;
@@ -173,14 +184,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     }
   };
 
-  // Abonnement temps réel pour les stats utilisateur
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToUserFcks(user.uid, (list) => setUserFcks(list));
     return () => unsub && unsub();
   }, [user?.uid]);
-
-  // Abonnement temps réel pour les amitiés
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToFriendships(user.uid, (friendsList) => {
@@ -188,8 +196,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     });
     return () => unsub && unsub();
   }, [user?.uid]);
-
-  // Charger le profil utilisateur pour vérifier hasSetInitialDisplayName
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!user) return;
@@ -203,53 +209,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     loadUserProfile();
   }, [user?.uid]);
 
-      // État du panneau "Marquez un LOV"
-  const [newFckOpen, setNewFckOpen] = useState(false);
-  const [locationType, setLocationType] = useState<'address' | 'city'>('address');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<Array<{ id: string; label: string; longitude: number; latitude: number }>>([]);
-  const [skipSearch, setSkipSearch] = useState(false); // évite un 2e affichage après sélection
-  const [selectedCoords, setSelectedCoords] = useState<{ longitude: number; latitude: number } | null>(null);
-  const [selectedEmoji, setSelectedEmoji] = useState<'aubergine' | 'peche' | null>(null);
-  const [partnerName, setPartnerName] = useState('');
-  const [rating, setRating] = useState<number>(0);
-
-  // Token Mapbox (utilisé pour la recherche) - Maintenant sécurisé via variables d'environnement
-  // Force l'utilisation de MAPBOX_TOKEN pour éviter l'optimisation Babel
-  const token = MAPBOX_TOKEN;
-
-  // Couleur utilisateur: l'utilisateur courant est toujours orange
   const getUserColor = (_uid?: string) => '#FF6A2B';
-
-  // Couleur d'un autre utilisateur: priorité à la couleur de la liste d'amis, sinon fallback déterministe
   const getColorForUserId = (uid: string | undefined): string => {
     if (!uid) return '#FF6A2B';
     if (uid === user?.uid) return '#FF6A2B';
     const fr = friends.find(f => f.uid === uid);
     if (fr?.color) return fr.color;
-    // Fallback déterministe basé sur l'UID (évite l'orange)
     const palette = ['#2D7FF9','#FFC107','#4CAF50','#673AB7','#E91E63','#00BCD4','#9C27B0','#3F51B5','#009688'];
     let hash = 0;
     for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
     return palette[hash % palette.length];
   };
-
-  // Nettoyage d'un libellé en nom de ville
   const cleanupCity = (raw: string): string => {
     if (!raw) return '';
     const noDigits = raw.replace(/[0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-    // Supprime éventuels codes/traits, garde mot(s) principaux (dernier mot si besoin)
     return noDigits || raw.trim();
   };
-  // Extraction de ville depuis un libellé Mapbox
   const extractCityFromLabel = (label: string, type: 'address' | 'city'): string => {
     if (!label) return '';
     const parts = label.split(',').map(s => s.trim());
     if (type === 'city') {
       return cleanupCity(parts[0] || '');
     }
-    // address: heuristique -> 2e segment (souvent "75001 Paris" ou "Paris")
     if (parts.length >= 2) {
       return cleanupCity(parts[1]);
     }
@@ -277,6 +258,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     if (!webViewRef.current) return;
     try { webViewRef.current.postMessage(JSON.stringify({ type: 'clearPreview' })); } catch {}
   };
+
+
 
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged((user) => {
@@ -322,7 +305,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     };
   }, [user?.uid]);
 
-  // Demande de permission localisation et centrage carte au premier lancement
+  // Demande de permission localisation et récupération de la position initiale
   useEffect(() => {
     (async () => {
       try {
@@ -337,18 +320,40 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
             }
           );
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            // Récupérer la position de l'utilisateur
             (global as any).navigator?.geolocation?.getCurrentPosition?.((pos: any) => {
               const lng = pos?.coords?.longitude; const lat = pos?.coords?.latitude;
-              if (webViewRef.current && isFinite(lng) && isFinite(lat)) {
-                try { webViewRef.current.postMessage(JSON.stringify({ type: 'centerTo', longitude: lng, latitude: lat })); } catch {}
+              if (isFinite(lng) && isFinite(lat)) {
+                setUserLocation({ longitude: lng, latitude: lat });
               }
             }, () => {}, { enableHighAccuracy: true, timeout: 10000 });
           }
+        } else if (Platform.OS === 'ios') {
+          // Pour iOS, essayer de récupérer la position directement
+          (global as any).navigator?.geolocation?.getCurrentPosition?.((pos: any) => {
+            const lng = pos?.coords?.longitude; const lat = pos?.coords?.latitude;
+            if (isFinite(lng) && isFinite(lat)) {
+              setUserLocation({ longitude: lng, latitude: lat });
+            }
+          }, () => {}, { enableHighAccuracy: true, timeout: 10000 });
         }
       } catch {}
     })();
-  }, []);
-
+    }, []);
+  
+  // Centrer la carte sur la position de l'utilisateur dès qu'elle est disponible
+  useEffect(() => {
+    if (userLocation && webViewRef.current) {
+      try {
+        webViewRef.current.postMessage(JSON.stringify({ 
+          type: 'centerTo', 
+          longitude: userLocation.longitude, 
+          latitude: userLocation.latitude 
+        }));
+      } catch {}
+    }
+  }, [userLocation]);
+  
   useEffect(() => {
     // Ne charger les points que si l'utilisateur est connecté
     if (!user?.uid) {
@@ -519,52 +524,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     return null;
   }
 
-  const pseudo: string = (user?.displayName as string) || (user?.email?.split('@')[0] as string) || 'Profil';
+  // Affichage: pseudo issu du profil Firestore
+  const pseudo: string = userProfile?.pseudo || (user?.email?.split('@')[0] as string) || 'Profil';
   const createdAtStr: string = (user?.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : '—');
 
-  // Fonction pour définir le pseudo initial (première connexion uniquement)
-  const savePseudo = async () => {
-    try {
-      const newName = (pseudoInput || '').trim();
-      if (newName.length < 3) {
-        Alert.alert('Erreur', 'Le pseudo doit contenir au moins 3 caractères');
-        return;
-      }
-      
-      setSavingPseudo(true);
-      console.log('🔄 Début de la définition du pseudo initial:', newName);
-      
-      // Mise à jour dans Firebase Authentication
-      console.log('📱 Mise à jour Firebase Auth...');
-      const current = auth().currentUser;
-      if (!current) throw new Error('Utilisateur non connecté');
-      
-      await current.updateProfile({ displayName: newName });
-      console.log('✅ Firebase Auth mis à jour');
-      
-      // Mise à jour dans Firestore
-      console.log('🔥 Mise à jour Firestore...');
-      await updateUserProfile({ displayName: newName });
-      console.log('✅ Firestore mis à jour');
-      
-      // Recharger l'utilisateur et mettre à jour l'état local
-      console.log('🔄 Rechargement de l\'utilisateur...');
-      await current.reload();
-      setUser(auth().currentUser);
-      setPseudoInput('');
-      console.log('✅ Pseudo initial défini avec succès !');
-      Alert.alert('Succès', 'Pseudo défini avec succès ! Il ne pourra plus être modifié.');
-    } catch (e: any) {
-      console.error('❌ Erreur lors de la définition du pseudo:', e);
-      if (e?.message?.includes('première connexion')) {
-        Alert.alert('Erreur', 'Le changement de pseudo n\'est autorisé qu\'à la première connexion');
-      } else {
-        Alert.alert('Erreur', e?.message || 'Impossible de définir le pseudo');
-      }
-    } finally {
-      setSavingPseudo(false);
-    }
-  };
+
+
+
 
   const mapHtml = `
     <!doctype html>
@@ -579,12 +545,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
         <div id="map"></div>
         <script>
           mapboxgl.accessToken = '${MAPBOX_TOKEN}';
-          const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: [2.3522, 48.8566],
-            zoom: 11
-          });
+                     const map = new mapboxgl.Map({
+             container: 'map',
+             style: 'mapbox://styles/mapbox/streets-v12',
+             center: [2.3522, 48.8566], // Position par défaut (Paris) en attendant la localisation
+             zoom: 11
+           });
            const markers = [];
            let CURRENT_USER_ID = null;
            let FRIENDS_COLORS = {};
@@ -866,24 +832,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                 <Text style={styles.fieldIcon}>👤</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>{t('home.username')}</Text>
-                  {!userProfile?.hasSetInitialDisplayName ? (
-                    // Interface d'édition pour première connexion
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <TextInput
-                        style={[styles.input, { flex: 1, height: 44 }]}
-                        value={pseudoInput}
-                        onChangeText={setPseudoInput}
-                        placeholder="Choisissez votre pseudo"
-                        autoFocus
-                      />
-                      <TouchableOpacity onPress={savePseudo} disabled={savingPseudo}>
-                        <Text style={[styles.saveIcon, savingPseudo ? { opacity: 0.5 } : null]}>✓</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    // Affichage en lecture seule
-                    <Text style={styles.fieldValue}>{pseudo}</Text>
-                  )}
+                  {/* Affichage en lecture seule, pas de modification de pseudo dans l'app */}
+                  <Text style={styles.fieldValue}>{pseudo}</Text>
 
                 </View>
               </View>

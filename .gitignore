@@ -1,123 +1,65 @@
-# OSX
-#
-.DS_Store
-
-# Xcode
-#
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-project.xcworkspace
-
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
-*.iml
-*.hprof
-
-# node.js
-#
+# Dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# BUCK
-buck-out/
-\.buckd/
-*.keystore
-!debug.keystore
-
-# Bundle artifacts
-*.jsbundle
-
-# CocoaPods
-/ios/Pods/
-
-# Expo
+# React Native
 .expo/
+dist/
 web-build/
 
-# Flipper
-ios/Pods/Flipper*
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
 # Metro
 .metro-health-check*
 
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# Testing
-/coverage
+# macOS
+.DS_Store
+*.pem
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# local env files
+.env*.local
 
-# Logs
-logs
-*.log
+# typescript
+*.tsbuildinfo
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# IDE
+.vscode/
+.idea/
 
-# Coverage directory used by tools like istanbul
-coverage/
+# Android
+android/app/build/
+android/build/
+android/gradle/
+android/local.properties
+android/.gradle/
+android/.idea/
+android/*.iml
+android/app/release/
 
-# nyc test coverage
-.nyc_output
+# iOS
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+ios/*.xcodeproj
+ios/DerivedData/
 
-# Dependency directories
-node_modules/
-jspm_packages/
+# Flipper
+ios/Pods/Flipper*
 
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-
-# next.js build output
-.next
-
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
-tmp/
-temp/
+# Credentials (NE JAMAIS COMMITTER)
+# Ces fichiers contiennent des credentials hardcodés pour le projet interne
+src/lib/firebase.ts
+src/screens/HomeScreen.tsx

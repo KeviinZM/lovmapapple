@@ -46,11 +46,16 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNaviga
       
       // 2. Créer le profil utilisateur dans Firestore
       try {
-        await ensureUserProfile(username); // Passer le nom d'utilisateur saisi
-        console.log('✅ Profil utilisateur créé avec succès dans Firestore');
+        // Attendre que l'utilisateur soit bien créé
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('🔍 Tentative de création du profil avec pseudo:', username);
+        const profile = await ensureUserProfile(username);
+        console.log('✅ Profil créé avec succès:', {
+          uid: profile.uid,
+          pseudo: profile.pseudo
+        });
       } catch (profileError: any) {
         console.error('❌ Erreur lors de la création du profil:', profileError);
-        // On continue même si le profil n'a pas pu être créé
       }
       
       // 3. Navigation forcée vers le HomeScreen après inscription réussie

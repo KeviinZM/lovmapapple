@@ -1,4 +1,4 @@
-# LovMap
+# LovMap v0.1.11
 
 Application React Native construite avec Gradle (migration depuis Expo).
 
@@ -8,7 +8,7 @@ Application React Native construite avec Gradle (migration depuis Expo).
 - **React** 19.1.0
 - **TypeScript** 5.0.4
 - **Firebase** (Auth, Firestore)
-- **Google Sign-In**
+
 
 ## 📱 Plateformes supportées
 
@@ -20,7 +20,7 @@ Application React Native construite avec Gradle (migration depuis Expo).
 - **🗺️ Cartographie interactive** avec Mapbox
 - **😊 Système de réactions émojis** (remplace les commentaires)
 - **👥 Gestion des amis** avec codes uniques
-- **🔐 Authentification** Firebase + Google Sign-In
+- **🔐 Authentification** Firebase
 - **🌍 Internationalisation** français/anglais
 - **📊 Statistiques** personnelles et partagées
 
@@ -110,7 +110,6 @@ Pour utiliser Firebase, vous devez :
 
 1. Créer un projet Firebase
 2. Ajouter `google-services.json` dans `android/app/`
-3. Ajouter `GoogleService-Info.plist` dans `ios/FckmapNative/`
 
 ## 🔒 Sécurité et confidentialité
 

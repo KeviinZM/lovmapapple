@@ -1,18 +1,15 @@
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import {
-  FIREBASE_API_KEY,
-  FIREBASE_AUTH_DOMAIN,
-  FIREBASE_PROJECT_ID,
-  FIREBASE_STORAGE_BUCKET,
-  FIREBASE_MESSAGING_SENDER_ID,
-  FIREBASE_APP_ID
-} from '@env';
+import { initializeApp } from '@react-native-firebase/app';
 
-// Configuration Firebase sécurisée via variables d'environnement
-// Force l'utilisation des variables pour éviter l'optimisation Babel
-const apiKey = FIREBASE_API_KEY;
-const projectId = FIREBASE_PROJECT_ID;
+
+const FIREBASE_API_KEY = 'AIzaSyCUTTnMVDtjbBprFa1sKPz2SWBe8B_0FII';
+const FIREBASE_AUTH_DOMAIN = 'lovmap-3cd2c.firebaseapp.com';
+const FIREBASE_PROJECT_ID = 'lovmap-3cd2c';
+const FIREBASE_STORAGE_BUCKET = 'lovmap-3cd2c.firebasestorage.app';
+const FIREBASE_MESSAGING_SENDER_ID = '533439795027';
+const FIREBASE_APP_ID = '1:533439795027:android:94d80bfa34408f4a6ddba6';
+
 
 export const firebaseConfig = {
   apiKey: FIREBASE_API_KEY,
@@ -23,5 +20,15 @@ export const firebaseConfig = {
   appId: FIREBASE_APP_ID
 };
 
-// Export des services Firebase (utilisés partout)
+
+try {
+  initializeApp(firebaseConfig);
+  console.log('✅ Firebase initialisé avec succès');
+} catch (error: any) {
+  if (error.code !== 'app/duplicate-app') {
+    console.error('Erreur lors de l\'initialisation Firebase:', error);
+  }
+}
+
+
 export { auth, firestore };

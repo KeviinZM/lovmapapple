@@ -9,30 +9,51 @@ import HomeScreen from '../screens/HomeScreen';
 type Screen = 'login' | 'signup' | 'home';
 
 const AppNavigator: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true); // Remis à true pour vérifier l'auth
+  const [loading, setLoading] = useState(true);
+  const [profileCreated, setProfileCreated] = useState(false);
 
   useEffect(() => {
+
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+      setCurrentScreen('login');
+    }, 5000);
+
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      setUser(user);
+      // Annuler le timeout de sécurité
+      clearTimeout(safetyTimeout);
+      
       if (user) {
-        try { await ensureUserProfile(); } catch {}
-        setCurrentScreen('home'); // Aller sur home si connecté
+        setUser(user);
+        
+        // Créer le profil seulement une fois
+        if (!profileCreated) {
+          try {
+            await ensureUserProfile();
+            setProfileCreated(true);
+          } catch (error) {
+            console.error('Erreur lors de la création du profil:', error);
+          }
+        }
+        
+        setCurrentScreen('home');
       } else {
-        setCurrentScreen('login'); // Aller sur login si déconnecté
+        setUser(null);
+        setProfileCreated(false);
+        setCurrentScreen('login');
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
-
-  const navigateTo = (screen: Screen) => {
-    setCurrentScreen(screen);
-  };
 
 
+    return () => {
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
+  }, [profileCreated]);
 
   const renderScreen = () => {
     if (loading) {
@@ -45,19 +66,20 @@ const AppNavigator: React.FC = () => {
 
     switch (currentScreen) {
       case 'login':
-        return <LoginScreen 
-          onNavigateToSignUp={() => navigateTo('signup')} 
-          onNavigateToHome={() => navigateTo('home')} 
-        />;
+        return (
+                  <LoginScreen 
+          onNavigateToSignUp={() => setCurrentScreen('signup')} 
+        />
+        );
       case 'signup':
         return <SignUpScreen 
-          onNavigateToLogin={() => navigateTo('login')} 
-          onNavigateToHome={() => navigateTo('home')} 
+          onNavigateToLogin={() => setCurrentScreen('login')} 
+          onNavigateToHome={() => setCurrentScreen('home')} 
         />;
       case 'home':
-        return <HomeScreen onNavigateToLogin={() => navigateTo('login')} />;
+        return <HomeScreen onNavigateToLogin={() => setCurrentScreen('login')} />;
       default:
-        return <HomeScreen onNavigateToLogin={() => navigateTo('login')} />;
+        return <HomeScreen onNavigateToLogin={() => setCurrentScreen('login')} />;
     }
   };
 

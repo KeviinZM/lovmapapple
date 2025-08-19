@@ -38,7 +38,7 @@ export const fr = {
     createAccount: 'Créer un compte',
     alreadyHaveAccount: 'Déjà un compte ?',
     dontHaveAccount: 'Pas de compte ?',
-    continueWithGoogle: 'Continuer avec Google',
+  
     continueWithEmail: 'Continuer avec Email',
     loginSuccess: 'Connexion réussie !',
     signupSuccess: 'Compte créé avec succès !',
@@ -54,9 +54,7 @@ export const fr = {
     wrongPassword: 'Mot de passe incorrect',
     tooManyRequests: 'Trop de tentatives. Réessayez plus tard',
     networkError: 'Erreur réseau. Vérifiez votre connexion',
-    googleSignInError: 'Erreur Google Sign-In',
-    googleSignInCancelled: 'Connexion annulée par l\'utilisateur',
-    googlePlayServicesError: 'Google Play Services non disponible',
+    
     developerError: 'Erreur de configuration développeur',
   },
 
