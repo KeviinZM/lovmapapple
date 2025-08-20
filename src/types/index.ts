@@ -61,3 +61,28 @@ export interface Fck {
   createdAt: Date;
   userPseudo?: string; // pseudo de l'utilisateur qui a créé le FCK
 }
+
+// Types pour les notifications
+export interface NotificationPreferences {
+  newLoves: boolean;
+  newFriendships: boolean;
+  newReactions: boolean;
+  sound: boolean;
+  vibration: boolean;
+}
+
+export interface NotificationData {
+  id: string;
+  type: 'newLove' | 'newFriendship' | 'newReaction';
+  title: string;
+  message: string;
+  userId: string;
+  userPseudo: string;
+  timestamp: Date;
+  read: boolean;
+  data?: {
+    loveId?: string;
+    friendId?: string;
+    reactionId?: string;
+  };
+}

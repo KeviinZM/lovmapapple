@@ -14,6 +14,7 @@ import { auth } from '../lib/firebase';
 import { ensureUserProfile } from '../lib/mapService';
 import { useLanguage } from '../i18n/LanguageContext';
 import LanguageButton from '../components/LanguageButton';
+import { LegalNavigator } from '../navigation/LegalNavigator';
 
 interface SignUpScreenProps {
   onNavigateToLogin: () => void;
@@ -21,11 +22,12 @@ interface SignUpScreenProps {
 }
 
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNavigateToHome }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
 
   const handleSignUp = async () => {
     if (!username || !email || !password) {
@@ -71,9 +73,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNaviga
     }
   };
 
+  if (legalOpen) {
+    return <LegalNavigator onGoBack={() => setLegalOpen(false)} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header Section */}
       <View style={styles.header}>
         <Image 
           source={require('../assets/images/logo2-V1.png')} 
@@ -149,9 +154,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNaviga
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-                         <>
-               <Text style={styles.signUpButtonText}>{t('auth.createAccount')}</Text>
-             </>
+            <>
+              <Text style={styles.signUpButtonText}>{t('auth.createAccount')}</Text>
+            </>
           )}
         </TouchableOpacity>
 
@@ -163,6 +168,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNaviga
             {t('auth.alreadyHaveAccount')} {t('auth.signIn')}
           </Text>
         </TouchableOpacity>
+
+        {/* Legal Information Link */}
+        <TouchableOpacity style={styles.legalLink} onPress={() => setLegalOpen(true)}>
+          <Text style={styles.legalText}>
+            {language === 'fr' ? 'Informations légales' : 'Legal Information'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -171,96 +183,59 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onNavigateToLogin, onNaviga
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 15,
+    backgroundColor: '#f5f5f5',
   },
   header: {
     alignItems: 'center',
-    marginTop: 36,
-    marginBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   logoImage: {
     width: 80,
     height: 80,
-    marginBottom: 12, // Augmenté pour être cohérent avec l'écran de connexion
-  },
-  locationIcon: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  locationIconText: {
-    fontSize: 18,
-  },
-  appTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 5,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   languageSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  globeIcon: {
-    fontSize: 12,
-    marginRight: 5,
-  },
-  languageText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#333',
+    marginTop: 10,
   },
   featureBoxes: {
-    marginBottom: 20, // Augmenté pour plus d'espace avant le formulaire
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 8,
   },
   featureBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 10,
-    marginBottom: 8, // Augmenté de 6 à 8 pour un meilleur espacement
     borderWidth: 1,
   },
   featureIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   featureIconText: {
-    fontSize: 14,
+    fontSize: 16,
   },
   featureText: {
-    fontSize: 13,
-    color: '#333',
     flex: 1,
-    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
   },
   form: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 10,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 12,
+    borderColor: '#ddd',
   },
   inputIcon: {
     fontSize: 16,
@@ -299,6 +274,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFA500',
     fontWeight: '600',
+  },
+  legalLink: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  legalText: {
+    fontSize: 12,
+    color: '#666',
+    textDecorationLine: 'underline',
   },
 });
 

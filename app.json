@@ -1,13 +1,13 @@
 {
   "name": "LovMap",
   "displayName": "LovMap - Partagez vos moments LOV",
-  "version": "0.1.12",
+  "version": "0.1.17",
   "description": "Application de partage de lieux et moments LOV entre amis",
   "bundleId": "com.lovmap.social",
   "android": {
     "package": "com.lovmap.social",
-    "versionCode": 4,
-    "versionName": "0.1.12",
+    "versionCode": 10,
+    "versionName": "0.1.17",
     "minSdkVersion": 21,
     "targetSdkVersion": 33,
     "permissions": [
@@ -29,7 +29,7 @@
   "expo": {
     "name": "LovMap",
     "slug": "lovmap",
-    "version": "0.1.12",
+    "version": "0.1.17",  
     "orientation": "portrait",
     "icon": "./src/assets/images/logo2-V1.png",
     "splash": {
@@ -47,5 +47,8 @@
       "android",
       "ios"
     ]
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-9648462208898928~9351416765"
   }
 }

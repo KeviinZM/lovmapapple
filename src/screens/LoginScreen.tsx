@@ -15,6 +15,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 import { ensureUserProfile } from '../lib/mapService';
 import LanguageButton from '../components/LanguageButton';
+import { LegalNavigator } from '../navigation/LegalNavigator';
 
 interface LoginScreenProps {
   onNavigateToSignUp: () => void;
@@ -22,10 +23,11 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigateToHome }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -50,6 +52,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
     }
   };
 
+  if (legalOpen) {
+    return <LegalNavigator onGoBack={() => setLegalOpen(false)} />;
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -60,8 +66,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
         />
         <LanguageButton style={styles.langRow} />
       </View>
-
-
 
       <View style={styles.form}>
         <View style={styles.tips}>
@@ -113,6 +117,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignUp, onNavigat
         <TouchableOpacity style={styles.signUpLink} onPress={onNavigateToSignUp}>
           <Text style={styles.signUpText}>
             {t('auth.dontHaveAccount')} {t('auth.signUp')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.legalLink} onPress={() => setLegalOpen(true)}>
+          <Text style={styles.legalText}>
+            {language === 'fr' ? 'Informations légales' : 'Legal Information'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -198,7 +208,15 @@ const styles = StyleSheet.create({
     color: '#FFA500',
     fontWeight: '600',
   },
-
+  legalLink: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  legalText: {
+    fontSize: 12,
+    color: '#666',
+    textDecorationLine: 'underline',
+  },
 });
 
 export default LoginScreen;

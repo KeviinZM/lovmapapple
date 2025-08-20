@@ -84,6 +84,25 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
         security: '• Mesures de sécurité appropriées'
       },
       
+      notifications: {
+        title: 'Notifications et Communications',
+        types: '• Notifications push pour nouveaux LOVs, amitiés et réactions',
+        consent: '• Consentement explicite requis pour les notifications',
+        preferences: '• Gestion des préférences de notifications',
+        optOut: '• Possibilité de désactiver à tout moment',
+        storage: '• Stockage local et synchronisation des préférences'
+      },
+      
+      advertising: {
+        title: 'Publicités et Services Publicitaires',
+        provider: '• Google AdMob pour l\'affichage de publicités',
+        consent: '• Consentement requis pour la publicité personnalisée',
+        personalization: '• Publicités basées sur vos intérêts (avec consentement)',
+        optOut: '• Possibilité de désactiver la personnalisation',
+        tracking: '• Cookies publicitaires pour la performance',
+        children: '• Publicités adaptées à l\'âge pour les mineurs'
+      },
+      
       intellectualProperty: {
         title: 'Propriété Intellectuelle',
         app: '• LovMap et son contenu sont protégés par la propriété intellectuelle',
@@ -97,6 +116,7 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
         firebase: '• Firebase (Google) pour l\'authentification et la base de données',
         mapbox: '• Mapbox pour les services de cartographie',
         emailjs: '• Email.js pour les communications',
+        admob: '• Google AdMob pour les services publicitaires',
         responsibility: '• Nous ne sommes pas responsables des services tiers'
       },
       
@@ -134,7 +154,7 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
       
       contact: {
         title: 'Contact',
-        email: 'Email: kevin.zuniga@hotmail.fr',
+        email: 'Email: contact@lovmap.fr',
         response: 'Réponse sous 48h ouvrées',
         support: 'Support technique disponible'
       }
@@ -206,6 +226,25 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
         security: '• Appropriate security measures'
       },
       
+      notifications: {
+        title: 'Notifications and Communications',
+        types: '• Push notifications for new LOVs, friendships and reactions',
+        consent: '• Explicit consent required for notifications',
+        preferences: '• Management of notification preferences',
+        optOut: '• Possibility to disable at any time',
+        storage: '• Local storage and synchronization of preferences'
+      },
+      
+      advertising: {
+        title: 'Advertising and Advertising Services',
+        provider: '• Google AdMob for displaying advertisements',
+        consent: '• Consent required for personalized advertising',
+        personalization: '• Advertisements based on your interests (with consent)',
+        optOut: '• Possibility to disable personalization',
+        tracking: '• Advertising cookies for performance',
+        children: '• Age-appropriate advertising for minors'
+      },
+      
       intellectualProperty: {
         title: 'Intellectual Property',
         app: '• LovMap and its content are protected by intellectual property',
@@ -219,6 +258,7 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
         firebase: '• Firebase (Google) for authentication and database',
         mapbox: '• Mapbox for mapping services',
         emailjs: '• Email.js for communications',
+        admob: '• Google AdMob for advertising services',
         responsibility: '• We are not responsible for third-party services'
       },
       
@@ -256,7 +296,7 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
       
       contact: {
         title: 'Contact',
-        email: 'Email: kevin.zuniga@hotmail.fr',
+        email: 'Email: contact@lovmap.fr',
         response: 'Response within 48 business hours',
         support: 'Technical support available'
       }
@@ -314,7 +354,6 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
           <Text style={styles.sectionText}>{content.acceptableUse.allowed2}</Text>
           <Text style={styles.sectionText}>{content.acceptableUse.allowed3}</Text>
           <Text style={styles.sectionText}>{content.acceptableUse.allowed4}</Text>
-          
           <Text style={styles.sectionText}>{content.acceptableUse.prohibited}</Text>
           <Text style={styles.sectionText}>{content.acceptableUse.prohibited1}</Text>
           <Text style={styles.sectionText}>{content.acceptableUse.prohibited2}</Text>
@@ -341,6 +380,25 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{content.notifications.title}</Text>
+          <Text style={styles.sectionText}>{content.notifications.types}</Text>
+          <Text style={styles.sectionText}>{content.notifications.consent}</Text>
+          <Text style={styles.sectionText}>{content.notifications.preferences}</Text>
+          <Text style={styles.sectionText}>{content.notifications.optOut}</Text>
+          <Text style={styles.sectionText}>{content.notifications.storage}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{content.advertising.title}</Text>
+          <Text style={styles.sectionText}>{content.advertising.provider}</Text>
+          <Text style={styles.sectionText}>{content.advertising.consent}</Text>
+          <Text style={styles.sectionText}>{content.advertising.personalization}</Text>
+          <Text style={styles.sectionText}>{content.advertising.optOut}</Text>
+          <Text style={styles.sectionText}>{content.advertising.tracking}</Text>
+          <Text style={styles.sectionText}>{content.advertising.children}</Text>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>{content.intellectualProperty.title}</Text>
           <Text style={styles.sectionText}>{content.intellectualProperty.app}</Text>
           <Text style={styles.sectionText}>{content.intellectualProperty.license}</Text>
@@ -353,6 +411,7 @@ export const TermsScreen: React.FC<TermsScreenProps> = ({ onGoBack }) => {
           <Text style={styles.sectionText}>{content.thirdParty.firebase}</Text>
           <Text style={styles.sectionText}>{content.thirdParty.mapbox}</Text>
           <Text style={styles.sectionText}>{content.thirdParty.emailjs}</Text>
+          <Text style={styles.sectionText}>{content.thirdParty.admob}</Text>
           <Text style={styles.sectionText}>{content.thirdParty.responsibility}</Text>
         </View>
 

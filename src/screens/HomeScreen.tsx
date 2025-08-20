@@ -5,11 +5,15 @@ import { addFck, getUserFcks, subscribeToFcks, subscribeToUserFcks, deleteFck, u
 import { subscribeToFriendships, addFriendByCode, removeFriend } from '../lib/friendshipService';
 import { toggleReaction, subscribeToReactions, AVAILABLE_EMOJIS } from '../lib/reactionService';
 import { Friend, ReactionCount, Fck } from '../types';
+import { startNotificationWatching, stopNotificationWatching } from '../lib/notificationWatcher';
 import { WebView } from 'react-native-webview';
 import firestore from '@react-native-firebase/firestore';
 import LanguageButton from '../components/LanguageButton';
 import { useLanguage } from '../i18n/LanguageContext';
 import LegalNavigator from '../navigation/LegalNavigator';
+import NotificationSettingsScreen from './NotificationSettingsScreen';
+import NotificationsHistoryScreen from './NotificationsHistoryScreen';
+import AdBanner from '../components/AdBanner';
 
 const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2V2aWluem0iLCJhIjoiY21kcDFjMTZnMDg5MjJqczhndXhsYTZvZiJ9.gZWhKGtIcOd61OHQ0pJKfg';
 
@@ -133,11 +137,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   const [pwdCurrent, setPwdCurrent] = useState('');
   const [pwdNew, setPwdNew] = useState('');
   const [pwdConfirm, setPwdConfirm] = useState('');
-
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-
   const [savingFck, setSavingFck] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [userFcks, setUserFcks] = useState<any[]>([]);
@@ -147,7 +149,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   const [editFckOpen, setEditFckOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
-
+  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
+  const [notificationsHistoryOpen, setNotificationsHistoryOpen] = useState(false);
   const [editPartnerName, setEditPartnerName] = useState('');
   const [editEmoji, setEditEmoji] = useState<'aubergine' | 'peche' | null>(null);
   const [editRating, setEditRating] = useState<number>(0);
@@ -171,8 +174,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   const [partnerName, setPartnerName] = useState('');
   const [rating, setRating] = useState<number>(0);
 
-  // Token Mapbox (utilisé pour la recherche) - Maintenant sécurisé via variables d'environnement
-  const token = MAPBOX_TOKEN;
+  // Token Mapbox pour la recherche
 
   const refreshUserFcks = async () => {
     if (!user) return;
@@ -194,7 +196,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     const unsub = subscribeToFriendships(user.uid, (friendsList) => {
       setFriends(friendsList);
     });
-    return () => unsub && unsub();
+    return unsub;
   }, [user?.uid]);
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -207,6 +209,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
       }
     };
     loadUserProfile();
+  }, [user?.uid]);
+
+  // Démarrer la surveillance des notifications quand l'utilisateur se connecte
+  useEffect(() => {
+    if (user) {
+      // Démarrer la surveillance des notifications
+      startNotificationWatching();
+      
+      // Nettoyer à la déconnexion
+      return () => {
+        stopNotificationWatching();
+      };
+    }
   }, [user?.uid]);
 
   const getUserColor = (_uid?: string) => '#FF6A2B';
@@ -434,13 +449,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     setSelectedCoords(coords);
     // Aperçu immédiat sur la carte
     postPreviewToMap(coords, selectedEmoji);
-    // on ferme la liste
+    // Fermer la liste des suggestions
     setSkipSearch(true);
     setSearching(false);
     setSuggestions([]);
   };
 
-  // Si l'utilisateur retouche la saisie, on réactive la recherche
+  // Réactiver la recherche si l'utilisateur modifie la saisie
   useEffect(() => {
     if (!newFckOpen) return;
     if (skipSearch && searchQuery.trim().length === 0) {
@@ -448,7 +463,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
     }
   }, [searchQuery, skipSearch, newFckOpen]);
 
-  // Quand l'emoji change, si on a déjà des coords, on met à jour l'aperçu
+  // Mettre à jour l'aperçu quand l'emoji change
   useEffect(() => {
     if (selectedCoords) {
       postPreviewToMap(selectedCoords, selectedEmoji);
@@ -527,9 +542,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
   // Affichage: pseudo issu du profil Firestore
   const pseudo: string = userProfile?.pseudo || (user?.email?.split('@')[0] as string) || 'Profil';
   const createdAtStr: string = (user?.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : '—');
-
-
-
 
 
   const mapHtml = `
@@ -611,7 +623,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                const primary = (arr.find(i=>i.userId===CURRENT_USER_ID) || arr[0]);
                const secondary = arr.find(i=>i.userId!==primary.userId);
                const el = secondary ? createCompositeMarker(primary, secondary) : createEmojiMarker(primary.emoji==='aubergine'?'🍆':'🍑', colorFor(primary.userId, primary.userColor||'#FF6A2B'));
-               const m = new mapboxgl.Marker({ element: el }).setLngLat([Number(primary.longitude), Number(primary.latitude)]).addTo(map);
+               const m = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([Number(primary.longitude), Number(primary.latitude)]).addTo(map);
                m.getElement().style.cursor = 'pointer';
                m.getElement().addEventListener('click', ()=>{ post('selectGroup', { group: arr }); });
                markers.push(m);
@@ -643,15 +655,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                 if (!isFinite(lng) || !isFinite(lat)) return;
                 if (previewMarker) { previewMarker.remove(); previewMarker = null; }
                 const el = createEmojiMarker(payload.emojiChar, payload.color);
-                previewMarker = new mapboxgl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+                previewMarker = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map);
                 try { map.flyTo({ center: [lng, lat], zoom: 13, essential: true }); } catch(_){ }
               } else if (payload.type==='clearPreview'){
                 if (previewMarker) { previewMarker.remove(); previewMarker = null; }
               }
-              // autres messages à venir
+              // Autres types de messages
             }catch(_){ }
           });
-          // interactions à venir
+          // Interactions futures
         </script>
       </body>
     </html>`;
@@ -664,7 +676,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
         setFckPopupOpen(true);
       } else if (payload.type === 'selectGroup' && Array.isArray(payload.group)) {
         const group: any[] = payload.group;
-        // ouvre le panneau du LOV primaire; s'il y en a deux, on montrera aussi un encart pour l'ami
+        // Ouvrir le panneau du LOV primaire
         const primary = (group.find((g:any)=>g.userId===user?.uid) || group[0]);
         setSelectedFck(primary);
         setFckPopupOpen(true);
@@ -721,6 +733,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
 
       {/* Boutons +/- supprimés; stats sera aligné dans la barre du bas */}
 
+      {/* Bannière publicitaire AdMob */}
+      <View style={styles.adBannerContainer}>
+        <AdBanner />
+      </View>
+
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.statsInline} activeOpacity={1} onPress={async () => { await refreshUserFcks(); setStatsOpen(true); }}>
           <Text style={styles.statsIcon}>📊</Text>
@@ -776,7 +793,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.sectionTitle}>{t('home.friendsList')}</Text>
+              <Text style={styles.sectionTitle}>{t('home.friendsList')}</Text>              
+              
               {friends.map(f => {
                 const friendFcks = fcks.filter(x => x.userId === f.uid);
                 const count = friendFcks.length;
@@ -796,7 +814,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                 );
               })}
               
-              {/* Bouton pour réassigner les couleurs des amis - SUPPRIMÉ */}
+
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -808,6 +826,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                                   <TouchableOpacity style={styles.menuItem} onPress={() => { setProfileMenuOpen(false); setAccountOpen(true); }}>
               <Text style={styles.menuItemIcon}>👤</Text>
               <Text style={styles.menuItemText}>{t('home.profileMenu')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setProfileMenuOpen(false); setNotificationsHistoryOpen(true); }}>
+              <Text style={styles.menuItemIcon}>🔔</Text>
+              <Text style={styles.menuItemText}>{t('notifications.title')}</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
@@ -851,6 +873,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                   <Text style={styles.fieldValue}>{createdAtStr}</Text>
                 </View>
               </View>
+
+              <TouchableOpacity 
+                style={styles.settingsButton} 
+                onPress={() => {
+                  setAccountOpen(false);
+                  setNotificationSettingsOpen(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingsButtonContent}>
+                  <View style={styles.settingsButtonInfo}>
+                    <Text style={styles.settingsButtonLabel}>{t('notifications.settings')}</Text>
+                  </View>
+                  <Text style={styles.settingsButtonArrow}>→</Text>
+                </View>
+              </TouchableOpacity>
 
               <Text style={styles.sectionTitle}>{t('home.changePassword')}</Text>
               <TextInput
@@ -947,6 +985,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
         <View style={styles.legalBackdrop}>
           <View style={styles.legalContainer}>
             <LegalNavigator onGoBack={() => setLegalOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Paramètres des notifications */}
+      <Modal visible={notificationSettingsOpen} transparent animationType="fade" onRequestClose={() => setNotificationSettingsOpen(false)}>
+        <View style={styles.legalBackdrop}>
+          <View style={styles.legalContainer}>
+            <NotificationSettingsScreen onGoBack={() => setNotificationSettingsOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Historique des notifications */}
+      <Modal visible={notificationsHistoryOpen} transparent animationType="fade" onRequestClose={() => setNotificationsHistoryOpen(false)}>
+        <View style={styles.legalBackdrop}>
+          <View style={styles.legalContainer}>
+            <NotificationsHistoryScreen onGoBack={() => setNotificationsHistoryOpen(false)} />
           </View>
         </View>
       </Modal>
@@ -1067,7 +1123,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                       setNewFckOpen(false);
                       postClearPreviewToMap();
                       Alert.alert(t('common.success'), t('home.messages.fckAdded'));
-                      // pas de rafraîchissement legacy
+                      // Sauvegarde réussie
                     } catch (e: any) {
                       Alert.alert(t('common.error'), e?.message || t('home.messages.fckAddError'));
                     } finally {
@@ -1221,7 +1277,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
               if (!other) return null;
               
               // Récupérer le displayName de l'ami depuis la collection friendships
-              // L'objet other ne contient pas les displayName, il faut les récupérer depuis friendships
+              // Récupérer le nom de l'ami depuis la collection friendships
               const friendName = fr?.displayName || String(((other.userEmail || '') as string).split('@')[0] || t('home.messages.friend'));
               
 
@@ -1354,7 +1410,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToLogin }) => {
                       partnerName: editPartnerName || undefined,
                       rating: editRating,
                     });
-                    // Optimisme: mettre à jour localement pour ressentir l'instantanéité
+                    // Mise à jour locale pour l'instantanéité
                     setFcks(prev => prev.map(f => f.id === selectedFck.id ? { ...f, emoji: editEmoji, partnerName: editPartnerName || null, rating: editRating } : f));
                     setUserFcks(prev => prev.map(f => f.id === selectedFck.id ? { ...f, emoji: editEmoji, partnerName: editPartnerName || null, rating: editRating } : f));
                     setEditFckOpen(false);
@@ -1479,7 +1535,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 60, // Remonter au-dessus de la bannière publicitaire
     padding: 12,
     gap: 8,
     flexDirection: 'row',
@@ -1735,6 +1791,45 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
+  },
+  // Styles pour le bouton des paramètres
+  settingsButton: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  settingsButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingsButtonIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  settingsButtonInfo: {
+    flex: 1,
+  },
+  settingsButtonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  settingsButtonArrow: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  // Style pour la bannière publicitaire
+  adBannerContainer: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
   },
 });
 

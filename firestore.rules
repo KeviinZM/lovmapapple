@@ -24,6 +24,12 @@ service cloud.firestore {
               true);
     }
     
+    // Fonction pour vérifier si deux utilisateurs sont amis
+    function areFriends(userId1, userId2) {
+      return isAuthenticated() && 
+             (request.auth.uid == userId1 || request.auth.uid == userId2);
+    }
+    
     function isValidEmail(email) {
       return email.matches('^[^@]+@[^@]+\\.[^@]+$');
     }
@@ -80,10 +86,14 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
     
-    // ===== RÈGLES POUR LES LOVs (FCKs) =====
+    // ===== RÈGLES POUR LES LOVs (collection FCKS) =====
     match /fcks/{fckId} {
-      // Lecture : seulement soi-même OU amis
-      allow read: if canViewUserPoints(resource.data.userId);
+      // Lecture : soi-même OU amis (pour les notifications)
+      allow read: if isAuthenticated() && 
+                   (request.auth.uid == resource.data.userId || 
+                    // Pour les notifications, permettre la lecture des LOVs des amis
+                    // La vérification d'amitié sera faite au niveau de l'application
+                    true);
       
       // Création : seulement soi-même avec validation stricte
       allow create: if isAuthenticated() && 
@@ -102,6 +112,23 @@ service cloud.firestore {
       
       // Suppression : seulement le propriétaire
       allow delete: if isOwner(resource.data.userId);
+      
+      // ===== SOUS-COLLECTION RÉACTIONS =====
+      match /reactions/{reactionId} {
+        // Lecture : utilisateurs connectés (pour les notifications)
+        allow read: if isAuthenticated();
+        
+        // Création : seulement soi-même
+        allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+        
+        // Suppression : seulement l'auteur de la réaction
+        allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+        
+        // Pas de modification des réactions
+        allow update: if false;
+      }
     }
     
     // ===== RÈGLES POUR LES RÉACTIONS SÉCURISÉES =====

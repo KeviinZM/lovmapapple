@@ -1,6 +1,6 @@
 {
   "name": "lovmap",
-  "version": "0.1.12",
+  "version": "0.1.17",
   "private": true,
   "description": "Application de partage de lieux et moments LOV entre amis",
   "main": "index.js",
@@ -17,12 +17,15 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
+    "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^1.24.0",
+    "@react-native-community/push-notification-ios": "^1.11.0",
     "@react-native-firebase/app": "^22.4.0",
     "@react-native-firebase/auth": "^22.4.0",
     "@react-native-firebase/firestore": "^22.4.0",
     "react": "19.1.0",
     "react-native": "0.80.2",
+    "react-native-google-mobile-ads": "^15.4.2",
     "react-native-webview": "^13.12.2"
   },
   "devDependencies": {

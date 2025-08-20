@@ -79,13 +79,13 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.lovmap.social"
-    defaultConfig {
-        applicationId "com.lovmap.social"
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
-        versionName "0.1.13"
-    }
+            defaultConfig {
+            applicationId "com.lovmap.social"
+            minSdkVersion rootProject.ext.minSdkVersion
+            targetSdkVersion rootProject.ext.targetSdkVersion
+            versionCode 10
+            versionName "0.1.17"
+        }
     signingConfigs {
         debug {
             storeFile file(System.properties['user.home'] + '/.android/debug.keystore')
@@ -122,6 +122,19 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Exclusions pour résoudre les conflits de dépendances avec react-native-push-notification
+    implementation('com.facebook.react:react-android') {
+        exclude group: 'com.android.support'
+        exclude group: 'androidx.core'
+    }
+    
+    // Forcer l'utilisation d'AndroidX pour éviter les conflits
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    
+    // AdMob via Firebase
+    implementation 'com.google.android.gms:play-services-ads:22.6.0'
 }
 
 
