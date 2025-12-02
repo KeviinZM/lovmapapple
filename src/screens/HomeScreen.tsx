@@ -7,7 +7,7 @@ import { toggleReaction, subscribeToReactions, AVAILABLE_EMOJIS } from '../lib/r
 import { Friend, ReactionCount, Fck } from '../types';
 import { startNotificationWatching, stopNotificationWatching } from '../lib/notificationWatcher';
 import { WebView } from 'react-native-webview';
-import firestore from '@react-native-firebase/firestore';
+import { firestore } from '../lib/firebase';
 import LanguageButton from '../components/LanguageButton';
 import { useLanguage } from '../i18n/LanguageContext';
 import LegalNavigator from '../navigation/LegalNavigator';
